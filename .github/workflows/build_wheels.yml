@@ -23,8 +23,28 @@ jobs:
           CIBW_BUILD: cp38-* cp39-* cp310-* cp311-* cp312-*
           CIBW_ARCHS: ${{ matrix.plat.arch }}
           CIBW_MANYLINUX_X86_64_IMAGE: "manylinux2014"
-          CIBW_BEFORE_ALL_LINUX: "sed -i -e 's/mirrorlist/#mirrorlist/g' -e 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*; yum install -y hdf5-devel openblas-devel"
-
+          # Replace the default old HDF5 shipped on CentOS7 (1.8.12) by building a compatible HDF5 >=1.10.7.
+          CIBW_BEFORE_ALL_LINUX: |
+            set -eux
+            # Switch CentOS mirrors to vault (needed on some runners)
+            sed -i -e 's/mirrorlist/#mirrorlist/g' -e 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+            # Install build deps
+            yum install -y epel-release wget tar gcc gcc-c++ make perl zlib-devel
+            # Remove older HDF5 packages if present (CentOS7 default is 1.8.12)
+            yum remove -y hdf5 hdf5-devel || true
+            # Download and build HDF5 1.10.8 (compatible with h5py)
+            HDF5_VER=1.10.8
+            wget -q https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.8/src/hdf5-1.10.8.tar.gz
+            tar -xzf hdf5-1.10.8.tar.gz
+            cd hdf5-1.10.8
+            ./configure --prefix=/usr/local --enable-shared
+            make -j"$(nproc)"
+            make -j"$(nproc)" install
+            cd ..
+            rm -rf hdf5-1.10.8 hdf5-1.10.8.tar.gz
+            # Ensure the new library path is visible
+            ldconfig
+        
           CIBW_ENVIRONMENT_MACOS: >
             GMP_DIR=${{ matrix.plat.homebrew }}
             MACOSX_DEPLOYMENT_TARGET=${{ matrix.plat.target }}
