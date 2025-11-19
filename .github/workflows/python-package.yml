@@ -47,13 +47,15 @@ jobs:
           pip install "cvxpy==1.4"
         fi
     - name: Install Green-MBTools and Test igen
+      timeout-minutes: 10
       run: |
         pip install --upgrade-strategy only-if-needed green-mbtools
+        pip install pytest-timeout
         python -c "import scipy; print('Scipy version: ', scipy.__version__)"
         cd ../
         git clone https://github.com/green-phys/green-mbtools
         cd green-mbtools/tests
-        pytest -v
+        pytest -v --timeout=300
     # - name: Lint with flake8
     #   run: |
     #     # stop the build if there are Python syntax errors or undefined names
